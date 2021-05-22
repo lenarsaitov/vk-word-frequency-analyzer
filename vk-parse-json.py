@@ -3,11 +3,13 @@ import string
 import re
 import nltk
 import pymorphy2
+from matplotlib import pyplot as plt
+import transliterate
 
 from login_with_password import *
 
 OWNER_ID = -29534144
-COUNT_OF_POSTS = 100
+COUNT_OF_POSTS = 200
 
 nltk.download('stopwords')
 nltk.download('punkt')
@@ -125,8 +127,8 @@ class VkClient:
         fdist_words = nltk.probability.FreqDist(words_nltked)
         return fdist_words.most_common(count_of_most)
 
-    def get_most_frequency_words_in_public(self, owner_id, count_of_post=10, count_most_freq_words=10):
-        posts = self.get_posts(owner_id=OWNER_ID, count=COUNT_OF_POSTS)
+    def get_most_frequency_words_in_public(self, owner_id, count_of_post=10, count_most_freq_words=10, save_plot=False):
+        posts = self.get_posts(owner_id=owner_id, count=count_of_post)
         posts_words_together = self.get_text_all_words_in_posts(posts_json=posts)
 
         post_ids = self.get_all_post_id(posts_json=posts)
@@ -140,28 +142,36 @@ class VkClient:
         most_frequency_main_comm_words = self.get_most_frequency_words_field(morphied_filtered_main_comm_words, count_of_most=count_most_freq_words)
         most_frequency_answ_comm_words = self.get_most_frequency_words_field(morphied_filtered_answ_comm_words, count_of_most=count_most_freq_words)
 
+        if save_plot:
+            self.get_plot_most_frequency_words(morphied_filtered_post_words, title='Наиболее частотные слова в постах')
+            self.get_plot_most_frequency_words(morphied_filtered_main_comm_words, title='Наиболее частотные слова в главных комментариях')
+            self.get_plot_most_frequency_words(morphied_filtered_answ_comm_words, title='Наиболее частотные слова в ответах на комментарии')
+
         return most_frequency_post_words, most_frequency_main_comm_words, most_frequency_answ_comm_words
+
+    def get_plot_most_frequency_words(self, words, title='Наиболее частотные слова ..'):
+        fig = plt.figure(figsize=(10, 4))
+        plt.gcf().subplots_adjust(bottom=0.15)  # to avoid x-ticks cut-off
+
+        words_nltked = nltk.Text(words)
+        fdist_words = nltk.probability.FreqDist(words_nltked)
+        fdist_words.plot(20, cumulative=False, title=title)
+
+        name_of_file = transliterate.translit(title, reversed=True)
+
+        fig.savefig(name_of_file, bbox_inches="tight")
+        plt.close(fig)
+
 
 if __name__ == '__main__':
     vk_client = VkClient(login=login, password=password)
 
-    most_frequency_post_words, most_frequency_main_comm_words, most_frequency_answ_comm_words = vk_client.get_most_frequency_words_in_public(owner_id=OWNER_ID, count_of_post=COUNT_OF_POSTS, count_most_freq_words=10)
+    most_frequency_post_words, \
+    most_frequency_main_comm_words, \
+    most_frequency_answ_comm_words = \
+        vk_client.get_most_frequency_words_in_public(owner_id=OWNER_ID,
+                                                     count_of_post=COUNT_OF_POSTS,
+                                                     count_most_freq_words=10,
+                                                     save_plot=True)
 
     print(most_frequency_post_words)
-
-    # posts = vk_client.get_posts(owner_id=OWNER_ID, count=COUNT_OF_POSTS)
-    # posts_words_together = vk_client.get_text_all_words_in_posts(posts_json=posts)
-    #
-    # post_ids = vk_client.get_all_post_id(posts_json=posts)
-    # main_comments_together, answer_comments_together = vk_client.get_text_all_words_in_comments(posts_json=posts,
-    #                                                                                  post_ids=post_ids)
-    #
-
-
-
-    # morphied_filtered_post_words = vk_client.get_clean_morphy_words(words_together=posts_words_together, stopwords=russian_stopwords)
-    # morphied_filtered_main_comm_words = vk_client.get_clean_morphy_words(words_together=main_comments_together, stopwords=russian_stopwords)
-    # morphied_filtered_answ_comm_words = vk_client.get_clean_morphy_words(words_together=answer_comments_together, stopwords=russian_stopwords)
-    #
-    # most_frequency = vk_client.get_most_frequency_words(morphied_filtered_post_words)
-    # print(most_frequency)
