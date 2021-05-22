@@ -7,10 +7,11 @@ import time
 import csv
 import os
 
-from login_with_password import login, password
+# from login_with_password import login, password
+login, password = "your login", "your password"
 
 OWNER_ID = -29534144
-COUNT_OF_POSTS = 2000
+COUNT_OF_POSTS = 500
 
 nltk.download('stopwords')
 nltk.download('punkt')
@@ -21,8 +22,10 @@ russian_stopwords.extend(['—', '–', 'это'])
 spec_chars = string.punctuation + '"' + '«' + "»" + "✹" + "•"
 print(f"Excess chars {spec_chars}")
 
+
 def remove_chars_from_text(text, chars):
     return "".join([ch for ch in text if ch not in chars])
+
 
 def delete_emojify(data):
     emoj = re.compile("["
@@ -47,7 +50,8 @@ def delete_emojify(data):
                       "]+", re.UNICODE)
     return re.sub(emoj, '', data)
 
-class Vk_Frequency:
+
+class VkFrequency:
     def __init__(self, login, password):
         self.vk_session = vk_api.VkApi(login, password)
         self.vk_session.auth()
@@ -125,7 +129,9 @@ class Vk_Frequency:
     def get_clean_morphy_words(self, words_together, stopwords):
         words_tokens = nltk.word_tokenize(words_together)
         filtered_words = self.remove_stop_words(words_tokens, stopwords)
-        return self.morphy_words(filtered_words)
+        morphied_words = self.morphy_words(filtered_words)
+        cleaned_words = self.remove_stop_words(morphied_words, stopwords)
+        return cleaned_words
 
     def get_frequency_words_field(self, words, count_of_most=50):
         words_nltked = nltk.Text(words)
@@ -204,11 +210,11 @@ class Vk_Frequency:
 if __name__ == '__main__':
     time_start = time.time()
 
-    vk_freq = Vk_Frequency(login=login, password=password)
+    vk_freq = VkFrequency(login=login, password=password)
 
-    most_frequency_post_words, \
-    most_frequency_main_comm_words, \
-    most_frequency_answ_comm_words = \
+    frequency_post_words, \
+    frequency_main_comm_words, \
+    frequency_answ_comm_words = \
         vk_freq.get_frequency_words_in_public(owner_id=OWNER_ID, count_of_post=COUNT_OF_POSTS)
 
     vk_freq.save_results_to_csv()
