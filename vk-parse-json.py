@@ -1,12 +1,21 @@
 import vk_api
 import string
 import re
+import nltk
+
 from login_with_password import *
 
 OWNER_ID = -29534144
 COUNT_OF_POSTS = 400
 
+nltk.download('stopwords')
+nltk.download('punkt')
+
+russian_stopwords = nltk.corpus.stopwords.words("russian")
+russian_stopwords.extend(['—', '–', 'это'])
+
 spec_chars = string.punctuation + '"' + '«' + "»" + "✹" + "•"
+print(f"Excess chars {spec_chars}")
 
 def remove_chars_from_text(text, chars):
     return "".join([ch for ch in text if ch not in chars])
@@ -93,10 +102,29 @@ class VkClient:
 
         return main_comments, answer_comments
 
+    def remove_stop_words(self, tokens, stopwords):
+        return [word for word in tokens if word not in stopwords
+                and "http" not in word
+                and "club" not in word
+                and "org" not in word
+                and "id" not in word]
+
+
 if __name__ == '__main__':
     vk_client = VkClient(login=login, password=password)
     posts = vk_client.get_posts(owner_id=OWNER_ID, count=COUNT_OF_POSTS)
     posts_words_together = vk_client.get_text_all_words_in_posts(posts_json=posts)
 
     post_ids = vk_client.get_all_post_id(posts_json=posts)
-    main_comments, answer_comments = vk_client.get_text_all_words_in_comments(posts_json=posts, post_ids=post_ids)
+    main_comments_together, answer_comments_together = vk_client.get_text_all_words_in_comments(posts_json=posts,
+                                                                                     post_ids=post_ids)
+
+    text_tokens = nltk.word_tokenize(posts_words_together)
+    main_comments_tokens = nltk.word_tokenize(main_comments_together)
+    answer_comments_tokens = nltk.word_tokenize(answer_comments_together)
+
+    filtered_text_words = vk_client.remove_stop_words(text_tokens, russian_stopwords)
+    filtered_main_words = vk_client.remove_stop_words(main_comments_tokens, russian_stopwords)
+    filtered_answ_words = vk_client.remove_stop_words(answer_comments_tokens, russian_stopwords)
+
+    print(filtered_text_words)
