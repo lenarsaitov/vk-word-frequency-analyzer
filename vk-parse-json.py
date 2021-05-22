@@ -2,6 +2,7 @@ import vk_api
 import string
 import re
 import nltk
+import pymorphy2
 
 from login_with_password import *
 
@@ -48,6 +49,8 @@ class VkClient:
         self.vk_session = vk_api.VkApi(login, password)
         self.vk_session.auth()
         self.vk = self.vk_session.get_api()
+
+        self.morph = pymorphy2.MorphAnalyzer()
 
     def get_posts(self, owner_id=-29534144, count=10, offset=0):
         self.owner_id = owner_id
@@ -109,6 +112,14 @@ class VkClient:
                 and "org" not in word
                 and "id" not in word]
 
+    def morphy_words(self, words):
+        return [self.morph.parse(word)[0].normal_form for word in words]
+
+    def get_clean_morphy_words(self, words_together, stopwords):
+        words_tokens = nltk.word_tokenize(words_together)
+        filtered_words = self.remove_stop_words(words_tokens, stopwords)
+        return self.morphy_words(filtered_words)
+
 
 if __name__ == '__main__':
     vk_client = VkClient(login=login, password=password)
@@ -119,12 +130,8 @@ if __name__ == '__main__':
     main_comments_together, answer_comments_together = vk_client.get_text_all_words_in_comments(posts_json=posts,
                                                                                      post_ids=post_ids)
 
-    text_tokens = nltk.word_tokenize(posts_words_together)
-    main_comments_tokens = nltk.word_tokenize(main_comments_together)
-    answer_comments_tokens = nltk.word_tokenize(answer_comments_together)
+    morphied_filtered_post_words = vk_client.get_clean_morphy_words(words_together=posts_words_together, stopwords=russian_stopwords)
+    morphied_filtered_main_comm_words = vk_client.get_clean_morphy_words(words_together=main_comments_together, stopwords=russian_stopwords)
+    morphied_filtered_answ_comm_words = vk_client.get_clean_morphy_words(words_together=answer_comments_together, stopwords=russian_stopwords)
 
-    filtered_text_words = vk_client.remove_stop_words(text_tokens, russian_stopwords)
-    filtered_main_words = vk_client.remove_stop_words(main_comments_tokens, russian_stopwords)
-    filtered_answ_words = vk_client.remove_stop_words(answer_comments_tokens, russian_stopwords)
-
-    print(filtered_text_words)
+    print(morphied_filtered_post_words)
