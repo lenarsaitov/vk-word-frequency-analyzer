@@ -5,11 +5,12 @@ import nltk
 import pymorphy2
 from matplotlib import pyplot as plt
 import transliterate
+import time
 
 from login_with_password import *
 
 OWNER_ID = -29534144
-COUNT_OF_POSTS = 200
+COUNT_OF_POSTS = 1000
 
 nltk.download('stopwords')
 nltk.download('punkt')
@@ -57,6 +58,7 @@ class VkClient:
     def get_posts(self, owner_id=-29534144, count=10, offset=0):
         self.owner_id = owner_id
         posts = self.vk.wall.get(owner_id=owner_id, offset=offset, count=count)
+
         return posts
 
     def get_comments_of_post(self, owner_id=-29534144, post_id=15428313, count=2000, thread_items_count=10):
@@ -86,10 +88,13 @@ class VkClient:
         main_comments = ''
         answer_comments = ''
 
+        k = 0
         for post_id in post_ids:
+            k += 1
+            print(f"{k} Geting comments from {post_id} post...")
+
             try:
                 comments_json = self.get_comments_of_post(owner_id=self.owner_id, post_id=post_id, count=2000, thread_items_count=10)
-                print(f"Geting comments from {post_id} post...")
 
                 for comment_post in comments_json['items']:
                     main_comment = comment_post['text'].lower()
@@ -128,13 +133,27 @@ class VkClient:
         return fdist_words.most_common(count_of_most)
 
     def get_most_frequency_words_in_public(self, owner_id, count_of_post=10, count_most_freq_words=10, save_plot=False):
-        posts = self.get_posts(owner_id=owner_id, count=count_of_post)
-        posts_words_together = self.get_text_all_words_in_posts(posts_json=posts)
+        if count_of_post <= 100:
+            posts = self.get_posts(owner_id=owner_id, count=count_of_post)
+            posts_words_together = self.get_text_all_words_in_posts(posts_json=posts)
+            post_ids = self.get_all_post_id(posts_json=posts)
 
-        post_ids = self.get_all_post_id(posts_json=posts)
+        else:
+            post_ids = []
+            posts_words_together = ''
+            for i in range(count_of_post // 100):
+                print(i)
+                posts = self.get_posts(owner_id=owner_id, count=100, offset=100*i)
+                posts_words_together += self.get_text_all_words_in_posts(posts_json=posts)
+                post_ids += self.get_all_post_id(posts_json=posts)
+
+            posts = self.get_posts(owner_id=owner_id, count=count_of_post % 100, offset=100*i)
+            posts_words_together += self.get_text_all_words_in_posts(posts_json=posts)
+            post_ids += self.get_all_post_id(posts_json=posts)
+
         main_comments_together, answer_comments_together = vk_client.get_text_all_words_in_comments(post_ids=post_ids)
 
-        morphied_filtered_post_words = self.get_clean_morphy_words(words_together=posts_words_together, stopwords=russian_stopwords)
+        morphied_filtered_post_words = self.get_clean_morphy_words(words_together=posts_words_together,stopwords=russian_stopwords)
         morphied_filtered_main_comm_words = self.get_clean_morphy_words(words_together=main_comments_together, stopwords=russian_stopwords)
         morphied_filtered_answ_comm_words = self.get_clean_morphy_words(words_together=answer_comments_together, stopwords=russian_stopwords)
 
@@ -164,6 +183,8 @@ class VkClient:
 
 
 if __name__ == '__main__':
+    time_start = time.time()
+
     vk_client = VkClient(login=login, password=password)
 
     most_frequency_post_words, \
@@ -172,6 +193,6 @@ if __name__ == '__main__':
         vk_client.get_most_frequency_words_in_public(owner_id=OWNER_ID,
                                                      count_of_post=COUNT_OF_POSTS,
                                                      count_most_freq_words=10,
-                                                     save_plot=True)
+                                                     save_plot=False)
 
-    print(most_frequency_post_words)
+    print(time.time() - time_start)
