@@ -6,11 +6,12 @@ import pymorphy2
 from matplotlib import pyplot as plt
 import transliterate
 import time
+import csv
 
 from login_with_password import *
 
 OWNER_ID = -29534144
-COUNT_OF_POSTS = 1000
+COUNT_OF_POSTS = 20
 
 nltk.download('stopwords')
 nltk.download('punkt')
@@ -137,8 +138,11 @@ class VkClient:
             posts = self.get_posts(owner_id=owner_id, count=count_of_post)
             posts_words_together = self.get_text_all_words_in_posts(posts_json=posts)
             post_ids = self.get_all_post_id(posts_json=posts)
-
         else:
+            posts = self.get_posts(owner_id=owner_id, count=1, offset=0)
+            if posts['count'] < count_of_post:
+                count_of_post = posts['count']
+
             post_ids = []
             posts_words_together = ''
             for i in range(count_of_post // 100):
@@ -157,6 +161,12 @@ class VkClient:
         morphied_filtered_main_comm_words = self.get_clean_morphy_words(words_together=main_comments_together, stopwords=russian_stopwords)
         morphied_filtered_answ_comm_words = self.get_clean_morphy_words(words_together=answer_comments_together, stopwords=russian_stopwords)
 
+        self.frequency_post_words = dict(nltk.probability.FreqDist(nltk.Text(morphied_filtered_post_words)))
+        self.frequency_main_comm_words = dict(nltk.probability.FreqDist(nltk.Text(morphied_filtered_main_comm_words)))
+        self.frequency_answ_comm_words = dict(nltk.probability.FreqDist(nltk.Text(morphied_filtered_answ_comm_words)))
+
+        print(self.frequency_main_comm_words)
+
         most_frequency_post_words = self.get_most_frequency_words_field(morphied_filtered_post_words, count_of_most=count_most_freq_words)
         most_frequency_main_comm_words = self.get_most_frequency_words_field(morphied_filtered_main_comm_words, count_of_most=count_most_freq_words)
         most_frequency_answ_comm_words = self.get_most_frequency_words_field(morphied_filtered_answ_comm_words, count_of_most=count_most_freq_words)
@@ -170,7 +180,7 @@ class VkClient:
 
     def get_plot_most_frequency_words(self, words, title='Наиболее частотные слова ..'):
         fig = plt.figure(figsize=(10, 4))
-        plt.gcf().subplots_adjust(bottom=0.15)  # to avoid x-ticks cut-off
+        plt.gcf().subplots_adjust(bottom=0.15)
 
         words_nltked = nltk.Text(words)
         fdist_words = nltk.probability.FreqDist(words_nltked)
@@ -180,6 +190,26 @@ class VkClient:
 
         fig.savefig(name_of_file, bbox_inches="tight")
         plt.close(fig)
+
+    def save_results(self):
+        path_post_words = "frequency_post_words.csv"
+        path_main_comm_words = "frequency_main_comm_words.csv"
+        path_answ_comm_words = "frequency_answ_comm_words.csv"
+
+        with open(path_post_words, "w") as f:
+            writer = csv.writer(f)
+            for key, value in self.frequency_post_words.items():
+                writer.writerow([key, value])
+
+        with open(path_main_comm_words, "w") as f:
+            writer = csv.writer(f)
+            for key, value in self.frequency_main_comm_words.items():
+                writer.writerow([key, value])
+
+        with open(path_answ_comm_words, "w") as f:
+            writer = csv.writer(f)
+            for key, value in self.frequency_answ_comm_words.items():
+                writer.writerow([key, value])
 
 
 if __name__ == '__main__':
@@ -194,5 +224,6 @@ if __name__ == '__main__':
                                                      count_of_post=COUNT_OF_POSTS,
                                                      count_most_freq_words=10,
                                                      save_plot=False)
+    vk_client.save_results()
 
     print(time.time() - time_start)
