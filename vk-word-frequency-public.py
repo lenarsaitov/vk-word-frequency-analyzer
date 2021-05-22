@@ -3,15 +3,14 @@ import string
 import re
 import nltk
 import pymorphy2
-from matplotlib import pyplot as plt
-import transliterate
 import time
 import csv
+import os
 
-from login_with_password import *
+from login_with_password import login, password
 
 OWNER_ID = -29534144
-COUNT_OF_POSTS = 20
+COUNT_OF_POSTS = 2000
 
 nltk.download('stopwords')
 nltk.download('punkt')
@@ -48,7 +47,7 @@ def delete_emojify(data):
                       "]+", re.UNICODE)
     return re.sub(emoj, '', data)
 
-class VkClient:
+class Vk_Frequency:
     def __init__(self, login, password):
         self.vk_session = vk_api.VkApi(login, password)
         self.vk_session.auth()
@@ -128,12 +127,14 @@ class VkClient:
         filtered_words = self.remove_stop_words(words_tokens, stopwords)
         return self.morphy_words(filtered_words)
 
-    def get_most_frequency_words_field(self, words, count_of_most=5):
+    def get_frequency_words_field(self, words, count_of_most=50):
         words_nltked = nltk.Text(words)
         fdist_words = nltk.probability.FreqDist(words_nltked)
         return fdist_words.most_common(count_of_most)
 
-    def get_most_frequency_words_in_public(self, owner_id, count_of_post=10, count_most_freq_words=10, save_plot=False):
+    def get_frequency_words_in_public(self, owner_id, count_of_post=10):
+        self.count_of_post = count_of_post
+
         if count_of_post <= 100:
             posts = self.get_posts(owner_id=owner_id, count=count_of_post)
             posts_words_together = self.get_text_all_words_in_posts(posts_json=posts)
@@ -146,7 +147,6 @@ class VkClient:
             post_ids = []
             posts_words_together = ''
             for i in range(count_of_post // 100):
-                print(i)
                 posts = self.get_posts(owner_id=owner_id, count=100, offset=100*i)
                 posts_words_together += self.get_text_all_words_in_posts(posts_json=posts)
                 post_ids += self.get_all_post_id(posts_json=posts)
@@ -155,7 +155,7 @@ class VkClient:
             posts_words_together += self.get_text_all_words_in_posts(posts_json=posts)
             post_ids += self.get_all_post_id(posts_json=posts)
 
-        main_comments_together, answer_comments_together = vk_client.get_text_all_words_in_comments(post_ids=post_ids)
+        main_comments_together, answer_comments_together = self.get_text_all_words_in_comments(post_ids=post_ids)
 
         morphied_filtered_post_words = self.get_clean_morphy_words(words_together=posts_words_together,stopwords=russian_stopwords)
         morphied_filtered_main_comm_words = self.get_clean_morphy_words(words_together=main_comments_together, stopwords=russian_stopwords)
@@ -165,36 +165,25 @@ class VkClient:
         self.frequency_main_comm_words = dict(nltk.probability.FreqDist(nltk.Text(morphied_filtered_main_comm_words)))
         self.frequency_answ_comm_words = dict(nltk.probability.FreqDist(nltk.Text(morphied_filtered_answ_comm_words)))
 
-        print(self.frequency_main_comm_words)
+        return self.frequency_post_words, self.frequency_main_comm_words, self.frequency_answ_comm_words
 
-        most_frequency_post_words = self.get_most_frequency_words_field(morphied_filtered_post_words, count_of_most=count_most_freq_words)
-        most_frequency_main_comm_words = self.get_most_frequency_words_field(morphied_filtered_main_comm_words, count_of_most=count_most_freq_words)
-        most_frequency_answ_comm_words = self.get_most_frequency_words_field(morphied_filtered_answ_comm_words, count_of_most=count_most_freq_words)
+    def save_results_to_csv(self):
+        complete_path = os.getcwd() + "/results/"
 
-        if save_plot:
-            self.get_plot_most_frequency_words(morphied_filtered_post_words, title='Наиболее частотные слова в постах')
-            self.get_plot_most_frequency_words(morphied_filtered_main_comm_words, title='Наиболее частотные слова в главных комментариях')
-            self.get_plot_most_frequency_words(morphied_filtered_answ_comm_words, title='Наиболее частотные слова в ответах на комментарии')
+        if not os.path.exists(complete_path):
+            os.mkdir(complete_path)
 
-        return most_frequency_post_words, most_frequency_main_comm_words, most_frequency_answ_comm_words
+        path_post_words = f"frequency_post_words_in_{self.count_of_post}_posts.csv"
+        path_main_comm_words = f"frequency_main_comm_words_in_{self.count_of_post}_posts.csv"
+        path_answ_comm_words = f"frequency_answ_comm_words_in_{self.count_of_post}_posts.csv"
 
-    def get_plot_most_frequency_words(self, words, title='Наиболее частотные слова ..'):
-        fig = plt.figure(figsize=(10, 4))
-        plt.gcf().subplots_adjust(bottom=0.15)
+        path_post_words = os.path.join(complete_path, path_post_words)
+        path_main_comm_words = os.path.join(complete_path, path_main_comm_words)
+        path_answ_comm_words = os.path.join(complete_path, path_answ_comm_words)
 
-        words_nltked = nltk.Text(words)
-        fdist_words = nltk.probability.FreqDist(words_nltked)
-        fdist_words.plot(20, cumulative=False, title=title)
-
-        name_of_file = transliterate.translit(title, reversed=True)
-
-        fig.savefig(name_of_file, bbox_inches="tight")
-        plt.close(fig)
-
-    def save_results(self):
-        path_post_words = "frequency_post_words.csv"
-        path_main_comm_words = "frequency_main_comm_words.csv"
-        path_answ_comm_words = "frequency_answ_comm_words.csv"
+        print(f"All len unique post words {len(self.frequency_post_words)}")
+        print(f"All len unique main comments words {len(self.frequency_main_comm_words)}")
+        print(f"All len unique answer comments words {len(self.frequency_answ_comm_words)}")
 
         with open(path_post_words, "w") as f:
             writer = csv.writer(f)
@@ -215,15 +204,13 @@ class VkClient:
 if __name__ == '__main__':
     time_start = time.time()
 
-    vk_client = VkClient(login=login, password=password)
+    vk_freq = Vk_Frequency(login=login, password=password)
 
     most_frequency_post_words, \
     most_frequency_main_comm_words, \
     most_frequency_answ_comm_words = \
-        vk_client.get_most_frequency_words_in_public(owner_id=OWNER_ID,
-                                                     count_of_post=COUNT_OF_POSTS,
-                                                     count_most_freq_words=10,
-                                                     save_plot=False)
-    vk_client.save_results()
+        vk_freq.get_frequency_words_in_public(owner_id=OWNER_ID, count_of_post=COUNT_OF_POSTS)
+
+    vk_freq.save_results_to_csv()
 
     print(time.time() - time_start)
